@@ -12,6 +12,37 @@ Send URL of recipe to LINE RecipeBot, then this bot analyzes its contents.
 - AWS LambdaはPythonランタイムで実装予定
 - webhook経由で受け取ったレシピのURLはtavily APIを使って内容を抽出し、その後LLMで解析する
 
+## シーケンス図（正常系）
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant LINE as LINE Messaging API
+    participant APIGW as API Gateway
+    participant Lambda as AWS Lambda<br/>(Python)
+    participant Tavily as Tavily API
+    participant LLM as GPT-5 (LLM)
+
+    User->>LINE: レシピURLをテキスト送信
+    LINE->>APIGW: Webhook POST (イベント転送)
+    APIGW->>Lambda: イベント転送
+
+    Note over Lambda: 署名検証<br/>(LINE_CHANNEL_SECRET)
+
+    Note over Lambda: イベント種別判定<br/>メッセージからURL抽出
+
+    Lambda->>Tavily: URL を渡してコンテンツ抽出リクエスト
+    Tavily-->>Lambda: Webページのコンテンツを返却
+
+    Lambda->>LLM: 抽出コンテンツを渡してレシピ解析リクエスト
+    LLM-->>Lambda: 構造化レシピ情報<br/>(タイトル・材料・手順)
+
+    Note over Lambda: レスポンスを<br/>ユーザー向けに整形
+
+    Lambda->>LINE: Reply API で返信<br/>(reply token 使用)
+    LINE->>User: 材料リストなどのレシピ情報を表示
+```
+
 # セットアップ
 - LINE DevelopersでRecipeBot用のチャネルを作成し、Channel IDとChannel secretを取得する
 - AWS lambda関数を作成し、取得したWebhoook URLをLINE Developersのチャネル設定に入力する
@@ -41,13 +72,8 @@ Send URL of recipe to LINE RecipeBot, then this bot analyzes its contents.
 - 料金に影響するは未定、後日設定する
 
 # 想定ユーザー / 利用シーン
-- どのようなユーザーが、どの場面でこの Bot を使うかを書く
-- 利用シーンごとに、入力と期待結果の違いがあるなら書く
+- スマホのブラウザで作りたい料理のレシピを見つけた時、所定のグループラインにURLを送ると、材料がわかりやすく返信される
 
 # 権限と外部依存
-- LINE、AWS、生成 AI、その他外部 API の依存先を書く
-- それぞれに必要な認証情報、権限、管理主体を書く
 
 # 障害時の挙動
-- 署名検証失敗時、生成 AI 呼び出し失敗時、返信失敗時の扱いを書く
-- ユーザーへの返答と運用者向けログの両方の方針を書く
